@@ -1,7 +1,10 @@
 import os
+import sys
 import json
 import streamlit as st
 from dotenv import load_dotenv
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from src.schemas import FinalDecision
 from src.graph import build_graph
