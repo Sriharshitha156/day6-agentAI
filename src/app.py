@@ -18,6 +18,142 @@ st.set_page_config(
     layout="wide",
 )
 
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    html, body, [class*="css"] {
+        font-family: 'Inter', sans-serif;
+    }
+    .main-header {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        padding: 1.8rem 2.5rem;
+        border-radius: 16px;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+    }
+    .main-header h1 {
+        color: white !important;
+        font-weight: 700;
+        font-size: 2rem;
+        margin: 0;
+        letter-spacing: -0.5px;
+    }
+    .main-header p {
+        color: rgba(255,255,255,0.7);
+        margin: 4px 0 0 0;
+        font-size: 0.9rem;
+    }
+    .pill-container {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 1.2rem;
+    }
+    .pill {
+        background: #f0f2f6;
+        padding: 4px 14px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: #333;
+        border: 1px solid #e0e0e0;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .pill.active {
+        background: #e8f5e9;
+        border-color: #4caf50;
+        color: #2e7d32;
+    }
+    .pill .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+    .pill .dot.green { background: #4caf50; }
+    .stButton button {
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        padding: 0.4rem 1.2rem;
+        transition: all 0.2s ease;
+    }
+    .stButton button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    div[data-testid="stTabs"] button {
+        font-weight: 600;
+        font-size: 0.85rem;
+        padding: 0.4rem 1.2rem;
+    }
+    div[data-testid="stTabs"] button[aria-selected="true"] {
+        border-bottom: 3px solid #0f3460;
+    }
+    div.stExpander {
+        border-radius: 10px;
+        border: 1px solid #eef0f4;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .verdict-badge {
+        display: inline-block;
+        padding: 3px 14px;
+        border-radius: 20px;
+        font-weight: 700;
+        font-size: 0.8rem;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+    }
+    .verdict-badge.interview { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+    .verdict-badge.hold { background: #fff3e0; color: #e65100; border: 1px solid #ffcc80; }
+    .verdict-badge.reject { background: #fbe9e7; color: #c62828; border: 1px solid #ef9a9a; }
+    .score-ring {
+        width: 60px; height: 60px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-weight: 700; font-size: 1rem;
+        border: 3px solid #e0e0e0;
+    }
+    .score-ring.high { border-color: #4caf50; color: #2e7d32; }
+    .score-ring.mid { border-color: #ff9800; color: #e65100; }
+    .score-ring.low { border-color: #ef5350; color: #c62828; }
+    .candidate-card {
+        background: white;
+        border-radius: 14px;
+        padding: 1.2rem 1.5rem;
+        border: 1px solid #eef0f4;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+        margin-bottom: 1rem;
+        transition: box-shadow 0.2s ease;
+    }
+    .candidate-card:hover {
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+    section[data-testid="stSidebar"] { display: none; }
+    .stTabs [data-baseweb="tab-list"] { gap: 4px; }
+    .stTabs [data-baseweb="tab"] {
+        border-radius: 8px 8px 0 0;
+        padding: 8px 18px;
+    }
+    .metric-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1rem;
+        border: 1px solid #eef0f4;
+        text-align: center;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .metric-card .label { font-size: 0.75rem; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+    .metric-card .value { font-size: 1.5rem; font-weight: 700; margin-top: 4px; }
+    hr { margin: 1.5rem 0; border-color: #eef0f4; }
+    footer { display: none; }
+    #MainMenu { visibility: hidden; }
+    .stCodeBlock { border-radius: 10px; }
+    div[role="alert"] { border-radius: 10px; }
+</style>
+""", unsafe_allow_html=True)
+
 DEFAULT_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
 
 
@@ -62,68 +198,77 @@ if "jd" not in st.session_state:
     st.session_state.result = None
     st.session_state.ran = False
 
-header_col1, header_col2, header_col3 = st.columns([3, 1, 1])
-with header_col1:
-    st.title("TechVest Recruitment Agent")
-with header_col2:
-    if st.button("Reset to defaults", use_container_width=True):
-        djd, drub, dcand = load_defaults()
-        st.session_state.jd = djd
-        st.session_state.rubric = drub
-        st.session_state.candidates = dcand
-        st.session_state.candidate_names = list(dcand.keys())
-        st.session_state.result = None
-        st.session_state.ran = False
-        st.rerun()
-with header_col3:
-    run_btn = st.button("Run Agent", type="primary", use_container_width=True)
-
-guardrail_pills = {
-    "Step Cap": f"{MAX_STEPS} steps",
-    "Human-in-the-Loop": "Active",
-    "Injection Defence": "Active",
-    "Fairness Check": "Active",
-}
-pills_html = " | ".join(
-    f'<span style="background:#f0f2f6;padding:2px 10px;border-radius:12px;font-size:13px">&#x2705; {k}: {v}</span>'
-    for k, v in guardrail_pills.items()
-)
 st.markdown(
-    f'<div style="margin-bottom:20px">{pills_html}</div>',
-    unsafe_allow_html=True,
+    '<div class="main-header">'
+    '<div style="display:flex;justify-content:space-between;align-items:center">'
+    '<div><h1>TechVest Recruitment Agent</h1>'
+    '<p>Autonomous candidate scoring, ranking & schedule</p></div>'
+    '<div style="display:flex;gap:10px">'
+    '</div></div></div>',
+    unsafe_allow_html=True
 )
+
+header_col1, header_col2 = st.columns([4, 1])
+with header_col2:
+    cc1, cc2 = st.columns(2)
+    with cc1:
+        if st.button("Reset", use_container_width=True):
+            djd, drub, dcand = load_defaults()
+            st.session_state.jd = djd
+            st.session_state.rubric = drub
+            st.session_state.candidates = dcand
+            st.session_state.candidate_names = list(dcand.keys())
+            st.session_state.result = None
+            st.session_state.ran = False
+            st.rerun()
+    with cc2:
+        run_btn = st.button("Run Agent", type="primary", use_container_width=True)
+
+pills_html = '<div class="pill-container">'
+guardrail_pills = [
+    ("Step Cap", f"Max {MAX_STEPS} steps", True),
+    ("Human-in-the-Loop", "Active", True),
+    ("Injection Defence", "Active", True),
+    ("Fairness Check", "Active", True),
+]
+for label, desc, active in guardrail_pills:
+    cls = "pill active" if active else "pill"
+    pills_html += f'<span class="{cls}"><span class="dot green"></span>{label}: {desc}</span>'
+pills_html += "</div>"
+st.markdown(pills_html, unsafe_allow_html=True)
 
 config_tab1, config_tab2, config_tab3 = st.tabs(["Job Description", "Scoring Rubric", "Candidates"])
 
 with config_tab1:
-    jd_col1, jd_col2 = st.columns([1, 1])
+    jd_col1, jd_col2 = st.columns([4, 1])
     with jd_col1:
-        jd_file = st.file_uploader("Upload JD (PDF, DOCX, TXT)", type=["txt", "pdf", "docx"], key="jd_upload")
+        jd_file = st.file_uploader("Upload PDF, DOCX, or TXT", type=["txt", "pdf", "docx"], key="jd_upload", label_visibility="collapsed")
         if jd_file:
             st.session_state.jd = extract_text_from_file(jd_file)
             st.rerun()
     with jd_col2:
-        char_count = len(st.session_state.jd)
-        st.metric("Characters", f"{char_count:,}")
-    jd_text = st.text_area("Edit JD", st.session_state.jd, height=300)
+        st.metric("Characters", f"{len(st.session_state.jd):,}")
+    jd_text = st.text_area("", st.session_state.jd, height=260, label_visibility="collapsed")
     if jd_text != st.session_state.jd:
         st.session_state.jd = jd_text
 
 with config_tab2:
     rubric = st.session_state.rubric
-    rubric_cols = st.columns(len(rubric["criteria"]))
+    rc = st.columns(len(rubric["criteria"]))
     new_criteria = []
     for i, c in enumerate(rubric["criteria"]):
-        with rubric_cols[i]:
+        with rc[i]:
+            st.markdown(f'<div style="background:#fafbfc;border-radius:10px;padding:12px;border:1px solid #eef0f4">', unsafe_allow_html=True)
             st.markdown(f"**{c['name']}**")
             name = st.text_input("Name", c["name"], key=f"c_name_{i}", label_visibility="collapsed")
             weight = st.number_input("Weight", 0.0, 1.0, c["weight"], 0.05, key=f"c_weight_{i}")
-            desc = st.text_area("Description", c["description"], height=80, key=f"c_desc_{i}")
+            desc = st.text_area("Description", c["description"], height=70, key=f"c_desc_{i}", label_visibility="collapsed")
             scale_str = st.text_area(
                 "Scale (0-5)",
                 "\n".join(f"{k}: {v}" for k, v in c["scale"].items()),
-                height=150, key=f"c_scale_{i}"
+                height=140, key=f"c_scale_{i}", label_visibility="collapsed"
             )
+            st.markdown("</div>", unsafe_allow_html=True)
             new_scale = {}
             for line in scale_str.strip().split("\n"):
                 if ":" in line:
@@ -134,37 +279,31 @@ with config_tab2:
     st.session_state.rubric = rubric
     total_weight = sum(c["weight"] for c in rubric["criteria"])
     if abs(total_weight - 1.0) > 0.01:
-        st.warning(f"Weights sum to {total_weight:.2f}. They should sum to 1.0.")
+        st.warning(f"Weights sum to {total_weight:.2f} — should be 1.0.")
 
 with config_tab3:
     names = list(st.session_state.candidates.keys())
-    cand_tabs = st.tabs([f"{n}" for n in names] + ["+ Add"])
+    cand_tabs = st.tabs([n.split()[0] for n in names] + ["+ Add"])
 
     for idx, name in enumerate(names):
         with cand_tabs[idx]:
             c1, c2 = st.columns([1, 5])
             with c1:
-                cand_file = st.file_uploader(
-                    f"Upload PDF/DOCX/TXT", type=["txt", "pdf", "docx"],
-                    key=f"upd_{name}", label_visibility="collapsed"
-                )
+                cand_file = st.file_uploader("Upload", type=["txt", "pdf", "docx"], key=f"upd_{name}", label_visibility="collapsed")
                 if cand_file:
                     st.session_state.candidates[name] = extract_text_from_file(cand_file)
                     st.rerun()
-                if st.button(f"Remove {name}", key=f"rm_{name}"):
+                if st.button(f"Remove", key=f"rm_{name}"):
                     del st.session_state.candidates[name]
                     st.session_state.candidate_names = list(st.session_state.candidates.keys())
                     st.rerun()
             with c2:
-                resume_text = st.text_area(
-                    f"Edit resume", st.session_state.candidates[name],
-                    height=250, key=f"resume_{name}", label_visibility="collapsed"
-                )
+                resume_text = st.text_area("", st.session_state.candidates[name], height=260, key=f"resume_{name}", label_visibility="collapsed")
                 if resume_text != st.session_state.candidates[name]:
                     st.session_state.candidates[name] = resume_text
 
     with cand_tabs[-1]:
-        nc1, nc2 = st.columns([1, 1])
+        nc1, nc2 = st.columns(2)
         with nc1:
             new_file = st.file_uploader("Upload resume (PDF, DOCX, TXT)", type=["txt", "pdf", "docx"], key="new_cand_file")
             new_name = st.text_input("Candidate name", key="new_cand_name")
@@ -174,14 +313,14 @@ with config_tab3:
                 st.session_state.candidate_names = list(st.session_state.candidates.keys())
                 st.rerun()
         with nc2:
-            new_resume = st.text_area("Or paste resume text", height=150, key="new_cand_resume")
+            new_resume = st.text_area("Or paste resume text", height=140, key="new_cand_resume")
             new_name2 = st.text_input("Candidate name", key="new_cand_name2")
-            if st.button("Add") and new_name2 and new_resume:
+            if st.button("Add Candidate") and new_name2 and new_resume:
                 st.session_state.candidates[new_name2] = new_resume
                 st.session_state.candidate_names = list(st.session_state.candidates.keys())
                 st.rerun()
 
-st.divider()
+st.markdown("<hr>", unsafe_allow_html=True)
 
 if run_btn:
     candidates = st.session_state.candidates
@@ -222,72 +361,114 @@ if st.session_state.get("ran") and st.session_state.result:
     res_tab1, res_tab2, res_tab3, res_tab4 = st.tabs(["Shortlist", "Trajectory", "Guardrails", "Fairness Check"])
 
     with res_tab1:
-        st.subheader("Ranked Shortlist")
+        st.markdown("### Ranked Shortlist")
         shortlist = result.get("shortlist", [])
         if not shortlist:
             st.warning("No shortlist produced.")
         else:
             for entry in shortlist:
-                color = {"interview": "green", "hold": "orange", "reject": "red"}
-                badge = color.get(entry.recommendation, "gray")
-                with st.container(border=True):
-                    cols = st.columns([1, 4, 3])
-                    with cols[0]:
-                        st.markdown(f"## #{entry.rank}")
-                    with cols[1]:
-                        st.markdown(f"### {entry.candidate_name}")
-                        st.markdown(f":{badge}[**{entry.recommendation.upper()}**]  |  Score: **{entry.scorecard.weighted_total:.2f}/5.0**")
-                    with cols[2]:
-                        if entry.proposed_action:
-                            slot = entry.proposed_action.slot
-                            st.markdown(f"**Proposed:** {slot.date} @ {slot.time}")
-                            st.markdown(f"Status: `{entry.proposed_action.status}`")
-                            if entry.proposed_action.status == "pending_approval":
-                                if st.button(f"Approve Interview", key=f"app_{entry.candidate_name}"):
-                                    entry.proposed_action.status = "approved"
-                                    st.success("Approved!")
+                score = entry.scorecard.weighted_total
+                score_class = "high" if score >= 3.5 else ("mid" if score >= 2.0 else "low")
+                badge_class = entry.recommendation
+                color_map = {"interview": "#2e7d32", "hold": "#e65100", "reject": "#c62828"}
+
+                st.markdown(
+                    f'<div class="candidate-card">'
+                    f'<div style="display:flex;justify-content:space-between;align-items:center">'
+                    f'<div style="display:flex;align-items:center;gap:16px">'
+                    f'<div style="font-size:1.6rem;font-weight:800;color:#ccc;">#{entry.rank}</div>'
+                    f'<div><div style="font-size:1.1rem;font-weight:600">{entry.candidate_name}</div>'
+                    f'<span class="verdict-badge {badge_class}">{entry.recommendation.upper()}</span></div>'
+                    f'</div>'
+                    f'<div style="text-align:center">'
+                    f'<div class="score-ring {score_class}">{score:.1f}</div>'
+                    f'<div style="font-size:0.7rem;color:#888;margin-top:4px">/ 5.0</div>'
+                    f'</div></div>',
+                    unsafe_allow_html=True
+                )
+
+                if entry.proposed_action:
+                    slot = entry.proposed_action.slot
+                    status = entry.proposed_action.status
+                    col_a, col_b = st.columns([3, 1])
+                    with col_a:
+                        st.markdown(f"**Proposed Interview:** {slot.date} @ {slot.time} ({slot.duration_minutes}min)")
+                    with col_b:
+                        if status == "pending_approval":
+                            if st.button(f"Approve Interview", key=f"app_{entry.candidate_name}", use_container_width=True):
+                                entry.proposed_action.status = "approved"
+                                st.success("Interview approved!")
                         else:
-                            st.markdown("*No interview proposed*")
-                    with st.expander("Scorecard & Justification"):
-                        for cs in entry.scorecard.criterion_scores:
-                            st.markdown(f"- {cs.criterion}: **{cs.score}/5** (w: {cs.weight}) &mdash; *{cs.evidence}*")
-                        st.markdown("---")
-                        st.markdown(entry.justification)
+                            st.markdown(f"Status: `{status}`")
+
+                with st.expander("Scorecard & Evidence"):
+                    for cs in entry.scorecard.criterion_scores:
+                        st.markdown(
+                            f'<div style="display:flex;justify-content:space-between;padding:4px 0">'
+                            f'<span>{cs.criterion} <span style="color:#999;font-size:0.85rem">(w: {cs.weight})</span></span>'
+                            f'<span><strong>{cs.score}/5</strong> <span style="color:#999;font-size:0.85rem">{cs.evidence[:60]}</span></span>'
+                            f'</div>',
+                            unsafe_allow_html=True
+                        )
+                st.markdown("</div>", unsafe_allow_html=True)
 
     with res_tab2:
-        st.subheader("Reasoning Trace")
+        st.markdown("### Reasoning Trace")
         trajectory = result.get("trajectory", [])
         if not trajectory:
             st.warning("No trajectory recorded.")
         else:
             for step in trajectory:
                 with st.expander(f"Step {step.step_number}: {step.action}", expanded=False):
+                    st.markdown(f'<div style="background:#f8f9fa;padding:12px;border-radius:8px">', unsafe_allow_html=True)
                     st.markdown(f"**Thought:** {step.thought}")
                     st.markdown(f"**Input:** `{json.dumps(step.action_input)}`")
                     st.markdown(f"**Observation:**")
                     st.code(step.observation[:500], language="text")
+                    st.markdown("</div>", unsafe_allow_html=True)
             with st.expander("Full Audit Log (JSON)"):
                 st.code(json.dumps([s.model_dump() for s in trajectory], indent=2), language="json")
 
     with res_tab3:
-        st.subheader("Guardrail Status")
-        gcols = st.columns(4)
+        st.markdown("### Guardrail Status")
         inj = result.get("injection_attempt_detected", False)
         step_count = result.get("step_count", 0)
         shortlist = result.get("shortlist", [])
         pending = [e for e in shortlist if e.proposed_action and e.proposed_action.status == "pending_approval"]
+
+        gcols = st.columns(4)
         with gcols[0]:
-            st.metric("Steps Used", f"{step_count}/{MAX_STEPS}")
+            st.markdown(
+                f'<div class="metric-card"><div class="label">Steps Used</div>'
+                f'<div class="value" style="color:{"#ef5350" if step_count>=MAX_STEPS else "#333"}">{step_count}/{MAX_STEPS}</div></div>',
+                unsafe_allow_html=True
+            )
         with gcols[1]:
-            st.metric("Injection Attempt", "Blocked" if inj else "None")
+            st.markdown(
+                f'<div class="metric-card"><div class="label">Injection</div>'
+                f'<div class="value" style="color:{"#ef5350" if inj else "#4caf50"}">{"Blocked" if inj else "Clear"}</div></div>',
+                unsafe_allow_html=True
+            )
         with gcols[2]:
-            st.metric("HITL Pending", len(pending))
+            st.markdown(
+                f'<div class="metric-card"><div class="label">HITL Pending</div>'
+                f'<div class="value" style="color:{"#ff9800" if pending else "#4caf50"}">{len(pending)}</div></div>',
+                unsafe_allow_html=True
+            )
         with gcols[3]:
-            passed = result.get("fairness_checked", False)
-            st.metric("Fairness", "Checked" if passed else "Pending")
+            st.markdown(
+                f'<div class="metric-card"><div class="label">Fairness</div>'
+                f'<div class="value">Checked</div></div>',
+                unsafe_allow_html=True
+            )
+
+        if inj:
+            st.warning("Prompt injection attempt was detected in a resume and blocked.")
+        if pending:
+            st.info(f"{len(pending)} interview(s) pending human approval — go to Shortlist tab.")
 
     with res_tab4:
-        st.subheader("Fairness Check")
+        st.markdown("### Fairness Check")
         profiles = result.get("parsed_profiles", {})
         scorecards = result.get("scorecards", {})
         names = list(profiles.keys())
@@ -297,16 +478,21 @@ if st.session_state.get("ran") and st.session_state.result:
                     na, nb = names[i], names[j]
                     if na in profiles and nb in profiles and na in scorecards and nb in scorecards:
                         fcheck = fairness_check(profiles[na], profiles[nb], scorecards[na], scorecards[nb])
-                        with st.container(border=True):
-                            st.markdown(f"**{na} vs {nb}**")
-                            cc = st.columns(2)
-                            cc[0].metric(na, f"{fcheck['relevant_score_a']:.2f}")
-                            cc[1].metric(nb, f"{fcheck['relevant_score_b']:.2f}")
-                            if fcheck["passed"]:
-                                st.success("Consistent — no bias detected.")
-                            else:
-                                st.error("Discrepancy found — review criteria.")
+                        st.markdown(
+                            f'<div style="background:#fafbfc;border-radius:12px;padding:16px;border:1px solid #eef0f4;margin-bottom:12px">'
+                            f'<div style="font-weight:600;margin-bottom:8px">{na} vs {nb}</div>'
+                            f'<div style="display:flex;gap:20px">',
+                            unsafe_allow_html=True
+                        )
+                        cc = st.columns(3)
+                        cc[0].metric(na, f"{fcheck['relevant_score_a']:.2f}")
+                        cc[1].metric(nb, f"{fcheck['relevant_score_b']:.2f}")
+                        if fcheck["passed"]:
+                            cc[2].success("Consistent")
+                        else:
+                            cc[2].error("Bias detected")
+                        st.markdown("</div>", unsafe_allow_html=True)
         else:
-            st.info("Need at least 2 candidates.")
+            st.info("Need at least 2 candidates for a fairness comparison.")
 else:
     st.info("Configure the inputs above, then click **Run Agent**.")
