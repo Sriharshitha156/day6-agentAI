@@ -3,6 +3,7 @@ import sys
 import json
 import streamlit as st
 from dotenv import load_dotenv
+import tempfile
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
@@ -19,6 +20,24 @@ st.set_page_config(
 )
 
 DEFAULT_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
+
+
+def extract_text_from_file(uploaded_file):
+    if uploaded_file is None:
+        return ""
+    name = uploaded_file.name.lower()
+    if name.endswith(".txt"):
+        return uploaded_file.read().decode("utf-8")
+    elif name.endswith(".pdf"):
+        from PyPDF2 import PdfReader
+        reader = PdfReader(uploaded_file)
+        return "\n".join(page.extract_text() or "" for page in reader.pages)
+    elif name.endswith(".docx"):
+        import docx
+        doc = docx.Document(uploaded_file)
+        return "\n".join(p.text for p in doc.paragraphs)
+    else:
+        return uploaded_file.read().decode("utf-8")
 
 
 def load_defaults():
@@ -46,15 +65,22 @@ if "jd" not in st.session_state:
     st.session_state.ran = False
 
 st.title("TechVest Recruitment Agent")
-st.markdown("Edit the JD, rubric, and candidates below, then click **Run Agent**.")
+st.markdown("Upload files (PDF, DOCX, TXT) or edit directly. Then click **Run Agent**.")
 
 with st.sidebar:
     st.header("Configuration")
 
     with st.expander("Job Description", expanded=True):
-        jd_text = st.text_area("Edit JD", st.session_state.jd, height=250, key="jd_input")
-        if jd_text != st.session_state.jd:
-            st.session_state.jd = jd_text
+        tab_a, tab_b = st.tabs(["Upload", "Edit"])
+        with tab_a:
+            jd_file = st.file_uploader("Upload JD", type=["txt", "pdf", "docx"], key="jd_upload")
+            if jd_file:
+                st.session_state.jd = extract_text_from_file(jd_file)
+                st.success(f"Loaded {jd_file.name}")
+        with tab_b:
+            jd_text = st.text_area("Edit JD", st.session_state.jd, height=250, key="jd_input")
+            if jd_text != st.session_state.jd:
+                st.session_state.jd = jd_text
 
     with st.expander("Scoring Rubric", expanded=True):
         rubric = st.session_state.rubric
@@ -81,11 +107,20 @@ with st.sidebar:
 
     with st.expander("Candidates", expanded=True):
         names = list(st.session_state.candidates.keys())
+
         for name in names:
-            col1, col2 = st.columns([3, 1])
+            col1, col2, col3 = st.columns([2, 1, 1])
             with col1:
                 st.markdown(f"**{name}**")
             with col2:
+                cand_file = st.file_uploader(
+                    f"Upload {name}", type=["txt", "pdf", "docx"],
+                    key=f"upd_{name}", label_visibility="collapsed"
+                )
+                if cand_file:
+                    st.session_state.candidates[name] = extract_text_from_file(cand_file)
+                    st.rerun()
+            with col3:
                 if st.button("Remove", key=f"rm_{name}"):
                     del st.session_state.candidates[name]
                     st.session_state.candidate_names = list(st.session_state.candidates.keys())
@@ -93,21 +128,31 @@ with st.sidebar:
 
         for name in names:
             resume_text = st.text_area(
-                f"{name} resume",
+                f"Edit {name}",
                 st.session_state.candidates[name],
-                height=150, key=f"resume_{name}"
+                height=120, key=f"resume_{name}"
             )
             if resume_text != st.session_state.candidates[name]:
                 st.session_state.candidates[name] = resume_text
 
-        new_name = st.text_input("New candidate name", key="new_cand_name")
-        new_resume = st.text_area("New candidate resume", height=100, key="new_cand_resume")
-        if st.button("Add Candidate") and new_name and new_resume:
+        st.divider()
+        st.markdown("**Add New Candidate**")
+        new_file = st.file_uploader("Upload resume", type=["txt", "pdf", "docx"], key="new_cand_file")
+        new_name = st.text_input("Name", key="new_cand_name")
+        if new_file:
+            extracted = extract_text_from_file(new_file)
+            st.text_area("Preview", extracted[:300], height=100, disabled=True)
+            if st.button("Add from file") and new_name:
+                st.session_state.candidates[new_name] = extracted
+                st.session_state.candidate_names = list(st.session_state.candidates.keys())
+                st.rerun()
+        new_resume = st.text_area("Or paste resume text", height=100, key="new_cand_resume")
+        if st.button("Add from text") and new_name and new_resume:
             st.session_state.candidates[new_name] = new_resume
             st.session_state.candidate_names = list(st.session_state.candidates.keys())
             st.rerun()
 
-        with st.button("Reset to defaults"):
+        if st.button("Reset to defaults"):
             djd, drub, dcand = load_defaults()
             st.session_state.jd = djd
             st.session_state.rubric = drub
@@ -125,7 +170,7 @@ with st.sidebar:
     for g, status in guardrail_status.items():
         st.markdown(f"- **{g}**: {status}")
 
-    run_btn = st.button("Run Agent", type="primary")
+    run_btn = st.button("Run Agent", type="primary", use_container_width=True)
 
 
 tab1, tab2, tab3, tab4 = st.tabs(["Shortlist", "Trajectory", "Guardrails", "Fairness Check"])
@@ -138,7 +183,6 @@ if run_btn:
         with st.spinner("Running recruitment agent..."):
             try:
                 app = build_graph()
-
                 initial_state = {
                     "job_description": st.session_state.jd,
                     "rubric": st.session_state.rubric,
@@ -156,14 +200,11 @@ if run_btn:
                     "fairness_checked": False,
                     "error": None,
                 }
-
                 config = {"recursion_limit": MAX_STEPS, "configurable": {"thread_id": "recruitment-1"}}
                 result = app.invoke(initial_state, config=config)
-
                 st.session_state.result = result
                 st.session_state.ran = True
                 st.rerun()
-
             except Exception as e:
                 st.error(f"Agent run failed: {e}")
                 st.session_state.ran = False
@@ -196,8 +237,7 @@ if st.session_state.get("ran") and st.session_state.result:
                             st.markdown(f"{slot.date} @ {slot.time} ({slot.duration_minutes}min)")
                             st.markdown(f"Status: `{entry.proposed_action.status}`")
                             if entry.proposed_action.status == "pending_approval":
-                                approve_key = f"approve_{entry.candidate_name}"
-                                if st.button(f"Approve Interview — {entry.candidate_name}", key=approve_key):
+                                if st.button(f"Approve Interview — {entry.candidate_name}", key=f"approve_{entry.candidate_name}"):
                                     entry.proposed_action.status = "approved"
                                     st.success(f"Interview approved for {entry.candidate_name}!")
                         else:
@@ -223,31 +263,30 @@ if st.session_state.get("ran") and st.session_state.result:
                     st.markdown(f"**Thought:** {step.thought}")
                     st.markdown(f"**Input:** `{json.dumps(step.action_input, indent=2)}`")
                     st.markdown(f"**Observation:**")
-                    st.code(step.observation[:300], language="text")
-
+                    st.code(step.observation[:500], language="text")
             st.subheader("Full Audit Log")
             st.code(json.dumps([s.model_dump() for s in trajectory], indent=2), language="json")
 
     with tab3:
         st.header("Guardrail Status")
-
         inj_detected = result.get("injection_attempt_detected", False)
         if inj_detected:
             st.warning("**Injection Attempt Detected** — A resume contained a prompt injection instruction. It was blocked and did not affect scoring.")
         else:
             st.success("**Injection Defence** — No injection attempts detected.")
-
         step_count = result.get("step_count", 0)
-        st.metric("Steps Used", f"{step_count}/{MAX_STEPS}")
-        if step_count >= MAX_STEPS:
-            st.error("Step cap reached!")
-        else:
-            st.success("Step cap respected.")
-
+        c1, c2 = st.columns(2)
+        with c1:
+            st.metric("Steps Used", f"{step_count}/{MAX_STEPS}")
+        with c2:
+            if step_count >= MAX_STEPS:
+                st.error("Step cap reached!")
+            else:
+                st.success("Step cap respected.")
         shortlist = result.get("shortlist", [])
         pending = [e for e in shortlist if e.proposed_action and e.proposed_action.status == "pending_approval"]
         if pending:
-            st.warning(f"**Human-in-the-Loop** — {len(pending)} interview(s) pending human approval. Switch to Shortlist tab to approve.")
+            st.warning(f"**Human-in-the-Loop** — {len(pending)} interview(s) pending human approval.")
         else:
             st.success("**Human-in-the-Loop** — All actions approved or none pending.")
 
@@ -255,13 +294,11 @@ if st.session_state.get("ran") and st.session_state.result:
         st.header("Fairness Check")
         profiles = result.get("parsed_profiles", {})
         scorecards = result.get("scorecards", {})
-
         names = list(profiles.keys())
         if len(names) >= 2:
             for i in range(len(names)):
                 for j in range(i + 1, len(names)):
-                    name_a = names[i]
-                    name_b = names[j]
+                    name_a, name_b = names[i], names[j]
                     if name_a in profiles and name_b in profiles and name_a in scorecards and name_b in scorecards:
                         fcheck = fairness_check(profiles[name_a], profiles[name_b], scorecards[name_a], scorecards[name_b])
                         with st.container(border=True):
@@ -270,9 +307,9 @@ if st.session_state.get("ran") and st.session_state.result:
                             st.markdown(f"- {name_a}: **{fcheck['relevant_score_a']:.2f}**")
                             st.markdown(f"- {name_b}: **{fcheck['relevant_score_b']:.2f}**")
                             if fcheck["passed"]:
-                                st.success(" Fairness check passed — scores are consistent.")
+                                st.success("Fairness check passed — scores are consistent.")
                             else:
-                                st.error(" Fairness check failed — investigate potential bias.")
+                                st.error("Fairness check failed — investigate potential bias.")
         else:
             st.info("Need at least 2 candidates for fairness comparison.")
 else:
