@@ -18,47 +18,106 @@ st.set_page_config(
     layout="wide",
 )
 
-st.title("TechVest Recruitment Agent")
-st.markdown("Autonomous candidate scoring, ranking, and interview scheduling with full trajectory audit.")
+DEFAULT_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
 
 
-def load_data():
-    data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
-    with open(os.path.join(data_dir, "job_description.md"), "r", encoding="utf-8") as f:
-        jd = f.read()
-    with open(os.path.join(data_dir, "rubric.json"), "r", encoding="utf-8") as f:
-        rubric = json.load(f)
-    candidates = {}
-    candidates_dir = os.path.join(data_dir, "candidates")
+def load_defaults():
+    with open(os.path.join(DEFAULT_DATA_DIR, "job_description.md"), "r", encoding="utf-8") as f:
+        default_jd = f.read()
+    with open(os.path.join(DEFAULT_DATA_DIR, "rubric.json"), "r", encoding="utf-8") as f:
+        default_rubric = json.load(f)
+    default_candidates = {}
+    candidates_dir = os.path.join(DEFAULT_DATA_DIR, "candidates")
     for fname in os.listdir(candidates_dir):
         if fname.endswith(".md"):
             name = fname.replace(".md", "").title()
             with open(os.path.join(candidates_dir, fname), "r", encoding="utf-8") as f:
-                candidates[name] = f.read()
-    return jd, rubric, candidates
+                default_candidates[name] = f.read()
+    return default_jd, default_rubric, default_candidates
 
 
-jd, rubric, candidates = load_data()
+if "jd" not in st.session_state:
+    djd, drub, dcand = load_defaults()
+    st.session_state.jd = djd
+    st.session_state.rubric = drub
+    st.session_state.candidates = dcand
+    st.session_state.candidate_names = list(dcand.keys())
+    st.session_state.result = None
+    st.session_state.ran = False
+
+st.title("TechVest Recruitment Agent")
+st.markdown("Edit the JD, rubric, and candidates below, then click **Run Agent**.")
 
 with st.sidebar:
     st.header("Configuration")
-    st.subheader("Job Description")
-    with st.expander("View JD"):
-        st.markdown(jd)
 
-    st.subheader("Scoring Rubric")
-    with st.expander("View Rubric"):
-        for c in rubric["criteria"]:
-            st.markdown(f"**{c['name']}** (weight: {c['weight']})")
-            st.caption(c["description"])
+    with st.expander("Job Description", expanded=True):
+        jd_text = st.text_area("Edit JD", st.session_state.jd, height=250, key="jd_input")
+        if jd_text != st.session_state.jd:
+            st.session_state.jd = jd_text
 
-    st.subheader("Candidates")
-    for name in candidates:
-        st.markdown(f"- {name}")
+    with st.expander("Scoring Rubric", expanded=True):
+        rubric = st.session_state.rubric
+        new_criteria = []
+        for i, c in enumerate(rubric["criteria"]):
+            st.markdown(f"**Criterion {i+1}**")
+            name = st.text_input("Name", c["name"], key=f"c_name_{i}")
+            weight = st.number_input("Weight", 0.0, 1.0, c["weight"], 0.05, key=f"c_weight_{i}")
+            desc = st.text_area("Description", c["description"], height=60, key=f"c_desc_{i}")
+            scale_str = st.text_area(
+                "Scale (0-5, one per line as `level: description`)",
+                "\n".join(f"{k}: {v}" for k, v in c["scale"].items()),
+                height=100, key=f"c_scale_{i}"
+            )
+            new_scale = {}
+            for line in scale_str.strip().split("\n"):
+                if ":" in line:
+                    k, v = line.split(":", 1)
+                    new_scale[k.strip()] = v.strip()
+            new_criteria.append({"name": name, "weight": weight, "description": desc, "scale": new_scale})
+            st.divider()
+        rubric["criteria"] = new_criteria
+        st.session_state.rubric = rubric
+
+    with st.expander("Candidates", expanded=True):
+        names = list(st.session_state.candidates.keys())
+        for name in names:
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.markdown(f"**{name}**")
+            with col2:
+                if st.button("Remove", key=f"rm_{name}"):
+                    del st.session_state.candidates[name]
+                    st.session_state.candidate_names = list(st.session_state.candidates.keys())
+                    st.rerun()
+
+        for name in names:
+            resume_text = st.text_area(
+                f"{name} resume",
+                st.session_state.candidates[name],
+                height=150, key=f"resume_{name}"
+            )
+            if resume_text != st.session_state.candidates[name]:
+                st.session_state.candidates[name] = resume_text
+
+        new_name = st.text_input("New candidate name", key="new_cand_name")
+        new_resume = st.text_area("New candidate resume", height=100, key="new_cand_resume")
+        if st.button("Add Candidate") and new_name and new_resume:
+            st.session_state.candidates[new_name] = new_resume
+            st.session_state.candidate_names = list(st.session_state.candidates.keys())
+            st.rerun()
+
+        with st.button("Reset to defaults"):
+            djd, drub, dcand = load_defaults()
+            st.session_state.jd = djd
+            st.session_state.rubric = drub
+            st.session_state.candidates = dcand
+            st.session_state.candidate_names = list(dcand.keys())
+            st.rerun()
 
     st.subheader("Guardrails")
     guardrail_status = {
-        "Step Cap": "Active (max 30 steps)",
+        "Step Cap": f"Active (max {MAX_STEPS} steps)",
         "Human-in-the-Loop": "Active (schedule requires approval)",
         "Injection Defence": "Active",
         "Fairness Check": "Active",
@@ -72,41 +131,45 @@ with st.sidebar:
 tab1, tab2, tab3, tab4 = st.tabs(["Shortlist", "Trajectory", "Guardrails", "Fairness Check"])
 
 if run_btn:
-    with st.spinner("Running recruitment agent..."):
-        try:
-            app = build_graph()
+    candidates = st.session_state.candidates
+    if not candidates:
+        st.error("Add at least one candidate before running.")
+    else:
+        with st.spinner("Running recruitment agent..."):
+            try:
+                app = build_graph()
 
-            initial_state = {
-                "job_description": jd,
-                "rubric": rubric,
-                "candidates": candidates,
-                "parsed_profiles": {},
-                "scorecards": {},
-                "shortlist": [],
-                "trajectory": [],
-                "current_candidate": None,
-                "candidates_remaining": list(candidates.keys()),
-                "phase": "planning",
-                "step_count": 0,
-                "human_approval_pending": None,
-                "injection_attempt_detected": False,
-                "fairness_checked": False,
-                "error": None,
-            }
+                initial_state = {
+                    "job_description": st.session_state.jd,
+                    "rubric": st.session_state.rubric,
+                    "candidates": candidates,
+                    "parsed_profiles": {},
+                    "scorecards": {},
+                    "shortlist": [],
+                    "trajectory": [],
+                    "current_candidate": None,
+                    "candidates_remaining": list(candidates.keys()),
+                    "phase": "planning",
+                    "step_count": 0,
+                    "human_approval_pending": None,
+                    "injection_attempt_detected": False,
+                    "fairness_checked": False,
+                    "error": None,
+                }
 
-            config = {"recursion_limit": MAX_STEPS, "configurable": {"thread_id": "recruitment-1"}}
-            result = app.invoke(initial_state, config=config)
+                config = {"recursion_limit": MAX_STEPS, "configurable": {"thread_id": "recruitment-1"}}
+                result = app.invoke(initial_state, config=config)
 
-            st.session_state["result"] = result
-            st.session_state["ran"] = True
-            st.rerun()
+                st.session_state.result = result
+                st.session_state.ran = True
+                st.rerun()
 
-        except Exception as e:
-            st.error(f"Agent run failed: {e}")
-            st.session_state["ran"] = False
+            except Exception as e:
+                st.error(f"Agent run failed: {e}")
+                st.session_state.ran = False
 
-if st.session_state.get("ran"):
-    result = st.session_state["result"]
+if st.session_state.get("ran") and st.session_state.result:
+    result = st.session_state.result
 
     with tab1:
         st.header("Ranked Shortlist")
