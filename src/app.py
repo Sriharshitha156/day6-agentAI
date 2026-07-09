@@ -189,6 +189,72 @@ def load_defaults():
     return default_jd, default_rubric, default_candidates
 
 
+def suggest_criteria_from_jd(jd_text: str) -> dict:
+    text_lower = jd_text.lower()
+
+    keywords = {
+        "Python": ["python"],
+        "Machine Learning": ["machine learning", "ml", "deep learning", "neural", "model training", "supervised", "unsupervised", "classification", "regression"],
+        "Data Engineering": ["data pipeline", "etl", "data processing", "sql", "database", "data warehouse", "big data", "spark"],
+        "Cloud & DevOps": ["aws", "gcp", "azure", "cloud", "docker", "kubernetes", "ci/cd", "devops", "deployment"],
+        "MLOps": ["mlops", "mlflow", "dvc", "experiment tracking", "model deployment", "model monitoring"],
+        "Deep Learning": ["pytorch", "tensorflow", "keras", "transformer", "lstm", "cnn", "deep learning"],
+        "NLP": ["nlp", "natural language", "text", "sentiment", "llm", "language model", "gpt"],
+        "Communication": ["communication", "present", "stakeholder", "collaborate", "team", "mentor", "documentation"],
+        "Frameworks & Tools": ["scikit-learn", "pandas", "numpy", "flask", "fastapi", "react", "node"],
+        "Software Engineering": ["software", "microservice", "api", "rest", "testing", "code review", "agile", "git"],
+        "Domain Knowledge": ["fintech", "finance", "healthcare", "e-commerce", "fraud", "recommendation"],
+    }
+
+    scale_templates = {
+        "Python": {"0": "No Python", "1": "Basic syntax", "2": "Scripts with libraries", "3": "Built applications", "4": "Production code", "5": "Expert / OSS contributor"},
+        "Machine Learning": {"0": "No ML knowledge", "1": "Theoretical familiarity", "2": "Coursework projects", "3": "Hands-on with real data", "4": "Production models", "5": "Published research"},
+        "Data Engineering": {"0": "None", "1": "Basic SQL", "2": "Data scripts", "3": "Built pipelines", "4": "Production pipelines", "5": "Distributed systems"},
+        "Cloud & DevOps": {"0": "None", "1": "Familiar", "2": "Used in projects", "3": "Deployed apps", "4": "Managed infrastructure", "5": "Expert"},
+        "MLOps": {"0": "None", "1": "Aware", "2": "Used tools", "3": "Set up pipelines", "4": "Production MLOps", "5": "Designed systems"},
+        "Deep Learning": {"0": "None", "1": "Familiar", "2": "Used frameworks", "3": "Built models", "4": "Deployed DL", "5": "Published"},
+        "NLP": {"0": "None", "1": "Basic text processing", "2": "NLP projects", "3": "Production NLP", "4": "LLM experience", "5": "Published"},
+        "Communication": {"0": "No evidence", "1": "Basic participation", "2": "Team contributor", "3": "Presented work", "4": "Mentors others", "5": "Leader / published"},
+        "Frameworks & Tools": {"0": "None", "1": "1-2 tools", "2": "2-3 tools", "3": "Working proficiency", "4": "Deep stack", "5": "Contributor"},
+        "Software Engineering": {"0": "None", "1": "Basic coding", "2": "Built features", "3": "Production apps", "4": "Microservices", "5": "Architect"},
+        "Domain Knowledge": {"0": "None", "1": "Awareness", "2": "Some exposure", "3": "Working knowledge", "4": "Deep domain expertise", "5": "Industry authority"},
+    }
+
+    suggested = []
+    matched = set()
+    for criteria_name, kws in keywords.items():
+        for kw in kws:
+            if kw in text_lower and criteria_name not in matched:
+                matched.add(criteria_name)
+                scale = scale_templates.get(criteria_name, {
+                    "0": "None", "1": "Basic", "2": "Some", "3": "Good", "4": "Strong", "5": "Expert"
+                })
+                suggested.append({
+                    "name": criteria_name,
+                    "weight": 0.0,
+                    "description": f"Assessed from JD requirements",
+                    "scale": scale,
+                })
+                break
+
+    if not suggested:
+        suggested = [
+            {"name": "Technical Skills", "weight": 0.0, "description": "Overall technical alignment with JD", "scale": {"0": "None", "1": "Basic", "2": "Some", "3": "Good", "4": "Strong", "5": "Expert"}},
+            {"name": "Experience", "weight": 0.0, "description": "Relevant experience level", "scale": {"0": "None", "1": "<1yr", "2": "1-2yr", "3": "2-4yr", "4": "4-6yr", "5": "6+yr"}},
+            {"name": "Culture Fit", "weight": 0.0, "description": "Communication and teamwork", "scale": {"0": "None", "1": "Minimal", "2": "Adequate", "3": "Good", "4": "Strong", "5": "Exceptional"}},
+        ]
+
+    total = len(suggested)
+    for c in suggested:
+        c["weight"] = round(1.0 / total, 2) if total > 0 else 0.2
+
+    remainder = round(1.0 - sum(c["weight"] for c in suggested), 2)
+    if suggested and remainder != 0:
+        suggested[0]["weight"] = round(suggested[0]["weight"] + remainder, 2)
+
+    return {"criteria": suggested, "evidence_rule": "Every score MUST cite a specific line from the candidate's resume.", "scoring_approach": "Weighted average of 0-5 criterion scores."}
+
+
 if "jd" not in st.session_state:
     djd, drub, dcand = load_defaults()
     st.session_state.jd = djd
@@ -254,21 +320,33 @@ with config_tab1:
 
 with config_tab2:
     rubric = st.session_state.rubric
-    rc = st.columns(len(rubric["criteria"]))
+
+    col_suggest, col_info = st.columns([1, 2])
+    with col_suggest:
+        if st.button("Suggest criteria from JD", use_container_width=True):
+            suggested = suggest_criteria_from_jd(st.session_state.jd)
+            st.session_state.rubric = suggested
+            st.rerun()
+    with col_info:
+        total_weight = sum(c["weight"] for c in rubric["criteria"])
+        st.markdown(f"**{len(rubric['criteria'])} criteria** | Total weight: **{total_weight:.2f}**")
+        if abs(total_weight - 1.0) > 0.01:
+            st.warning(f"Weights sum to {total_weight:.2f}. Adjust sliders to reach 1.0.")
+
     new_criteria = []
     for i, c in enumerate(rubric["criteria"]):
-        with rc[i]:
-            st.markdown(f'<div style="background:#fafbfc;border-radius:10px;padding:12px;border:1px solid #eef0f4">', unsafe_allow_html=True)
-            st.markdown(f"**{c['name']}**")
-            name = st.text_input("Name", c["name"], key=f"c_name_{i}", label_visibility="collapsed")
-            weight = st.number_input("Weight", 0.0, 1.0, c["weight"], 0.05, key=f"c_weight_{i}")
-            desc = st.text_area("Description", c["description"], height=70, key=f"c_desc_{i}", label_visibility="collapsed")
+        with st.expander(f"{c['name']}  (weight: {c['weight']})", expanded=False):
+            col_a, col_b = st.columns([1, 1])
+            with col_a:
+                name = st.text_input("Criterion name", c["name"], key=f"c_name_{i}")
+                weight = st.slider("Weight", 0.0, 1.0, c["weight"], 0.05, key=f"c_weight_{i}")
+            with col_b:
+                desc = st.text_input("Short description", c["description"], key=f"c_desc_{i}")
+            st.markdown("**Scale (0–5)** — one line per level as `level: description`")
             scale_str = st.text_area(
-                "Scale (0-5)",
-                "\n".join(f"{k}: {v}" for k, v in c["scale"].items()),
-                height=140, key=f"c_scale_{i}", label_visibility="collapsed"
+                "", "\n".join(f"{k}: {v}" for k, v in c["scale"].items()),
+                height=130, key=f"c_scale_{i}", label_visibility="collapsed"
             )
-            st.markdown("</div>", unsafe_allow_html=True)
             new_scale = {}
             for line in scale_str.strip().split("\n"):
                 if ":" in line:
@@ -277,9 +355,6 @@ with config_tab2:
             new_criteria.append({"name": name, "weight": weight, "description": desc, "scale": new_scale})
     rubric["criteria"] = new_criteria
     st.session_state.rubric = rubric
-    total_weight = sum(c["weight"] for c in rubric["criteria"])
-    if abs(total_weight - 1.0) > 0.01:
-        st.warning(f"Weights sum to {total_weight:.2f} — should be 1.0.")
 
 with config_tab3:
     names = list(st.session_state.candidates.keys())
