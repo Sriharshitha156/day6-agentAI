@@ -1,0 +1,84 @@
+{
+  "criteria": [
+    {
+      "name": "Python Proficiency",
+      "weight": 0.25,
+      "description": "Hands-on Python experience, code quality, use of Python ecosystem",
+      "scale": {
+        "0": "No Python experience",
+        "1": "Basic Python syntax knowledge",
+        "2": "Wrote Python scripts; familiar with libraries",
+        "3": "Built applications in Python; uses pandas/numpy regularly",
+        "4": "Strong Python; production code, testing, optimization",
+        "5": "Expert-level Python; contributions to Python OSS, advanced patterns"
+      }
+    },
+    {
+      "name": "ML Fundamentals",
+      "weight": 0.25,
+      "description": "Understanding of ML algorithms, model evaluation, feature engineering",
+      "scale": {
+        "0": "No ML knowledge",
+        "1": "Familiar with ML concepts theoretically",
+        "2": "Built basic models in coursework",
+        "3": "Hands-on ML projects with real datasets",
+        "4": "Production ML models; evaluation, tuning, deployment",
+        "5": "Published ML research; advanced methods (transformers, GANs, etc.)"
+      }
+    },
+    {
+      "name": "Tooling & Frameworks",
+      "weight": 0.20,
+      "description": "Experience with scikit-learn, pandas, numpy, PyTorch/TensorFlow, SQL",
+      "scale": {
+        "0": "No relevant tooling experience",
+        "1": "Familiar with 1-2 tools at basic level",
+        "2": "Used 2-3 tools in projects",
+        "3": "Working proficiency with scikit-learn, pandas, numpy, SQL",
+        "4": "Deep experience with ML stack + PyTorch or TensorFlow",
+        "5": "Expert with multiple frameworks; contributes to ML tooling"
+      }
+    },
+    {
+      "name": "Data Engineering",
+      "weight": 0.10,
+      "description": "Data pipelines, ETL, SQL, data processing at scale",
+      "scale": {
+        "0": "No data engineering experience",
+        "1": "Basic SQL queries",
+        "2": "Wrote data processing scripts",
+        "3": "Built data pipelines; ETL experience",
+        "4": "Production data pipelines; handling large-scale data",
+        "5": "Designed distributed data systems; real-time processing"
+      }
+    },
+    {
+      "name": "Relevant Projects",
+      "weight": 0.10,
+      "description": "Projects related to AI/ML, fintech, fraud detection, recommendation",
+      "scale": {
+        "0": "No relevant projects",
+        "1": "Coursework-only projects",
+        "2": "Personal projects with some relevance",
+        "3": "Relevant projects with real-world application",
+        "4": "Production-grade relevant projects with impact",
+        "5": "Industry-recognized projects; open-source contributions"
+      }
+    },
+    {
+      "name": "Communication & Collaboration",
+      "weight": 0.10,
+      "description": "Ability to explain technical concepts, teamwork, presentations",
+      "scale": {
+        "0": "No evidence of collaboration",
+        "1": "Basic team participation",
+        "2": "Active team contributor",
+        "3": "Presented work; collaborates across teams",
+        "4": "Leads discussions; mentors others",
+        "5": "Cross-functional leader; published speaker/writer"
+      }
+    }
+  ],
+  "evidence_rule": "Every score MUST cite a specific line or section from the candidate's resume. Scores without evidence are invalid.",
+  "scoring_approach": "score_candidate tool reads the parsed CandidateProfile and applies this rubric. Each criterion is scored 0-5, multiplied by weight, summed for total (max 5.0)."
+}

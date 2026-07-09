@@ -1,2 +1,8 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+streamlit_secrets.toml
 node_modules/
 test-results/
+*.log
