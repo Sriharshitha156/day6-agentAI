@@ -154,11 +154,10 @@ def node_finalize(state: AgentState) -> AgentState:
 
 
 def should_continue_parse(state: AgentState) -> Literal["score", "finalize"]:
-    remaining = state.get("candidates_remaining", [])
-    if not remaining:
-        return "finalize"
     current = state.get("current_candidate")
-    return "score" if (current and current in state.get("parsed_profiles", {})) else "finalize"
+    if current and current in state.get("parsed_profiles", {}):
+        return "score"
+    return "finalize"
 
 
 def should_continue_score(state: AgentState) -> Literal["decide", "finalize"]:
