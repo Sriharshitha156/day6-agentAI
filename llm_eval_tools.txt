@@ -1,0 +1,35 @@
+LLM Evaluation Tools — Overview
+=================================
+
+1. DeepEval
+   - Language: Python
+   - License: Apache 2.0
+   - What it does: Open-source LLM evaluation framework with 50+ metrics (faithfulness,
+     hallucination, G-Eval, answer relevancy, etc.). Integrates natively with pytest
+     and CI/CD pipelines. Supports RAG, AI agents, chatbots, and multi-turn evaluations.
+   - Best for: Code-first, pytest-style unit tests for LLM outputs.
+
+2. Giskard
+   - Language: Python (open-source library) + Vue/TypeScript (Hub UI)
+   - License: Open-source + Enterprise (Giskard Hub)
+   - What it does: Testing framework for ML models and LLM agents. Its "Scan" feature
+     automatically detects vulnerabilities (prompt injection, bias, PII leakage, harmful
+     content) following OWASP LLM Top-10. Provides red-teaming and continuous evaluation.
+   - Best for: Security-focused testing and adversarial vulnerability scanning.
+
+3. Promptfoo
+   - Language: TypeScript/Node.js (CLI + library), also available via pip
+   - License: MIT (now part of OpenAI, remains open-source)
+   - What it does: CLI & library for prompt testing, model comparison, and red-teaming.
+     Uses YAML config to define prompts x providers x test assertions. Generates side-by-side
+     comparison views and security vulnerability reports. Integrates into CI/CD.
+   - Best for: Comparing models, catching prompt regressions, security red-teaming.
+
+4. test-dashboard
+   - Language: Varies (commonly Python/Streamlit, TypeScript, or platform-specific)
+   - License: Depends on implementation
+   - What it does: A dashboard UI that visualizes evaluation test results — pass/fail
+     rates, metrics over time, regression tracking, and model comparison. Examples include
+     Confident AI (pairs with DeepEval), Giskard Hub, Promptfoo's "promptfoo view",
+     or custom-built dashboards (Streamlit, Grafana, etc.).
+   - Best for: Centralized visibility of LLM evaluation metrics across a team.

@@ -130,7 +130,7 @@ st.markdown("""
     .candidate-card:hover {
         box-shadow: 0 4px 20px rgba(0,0,0,0.08);
     }
-    section[data-testid="stSidebar"] { display: none; }
+
     .stTabs [data-baseweb="tab-list"] { gap: 4px; }
     .stTabs [data-baseweb="tab"] {
         border-radius: 8px 8px 0 0;
@@ -191,7 +191,6 @@ def load_defaults():
 
 def suggest_criteria_from_jd(jd_text: str) -> dict:
     text_lower = jd_text.lower()
-
     keywords = {
         "Python": ["python"],
         "Machine Learning": ["machine learning", "ml", "deep learning", "neural", "model training", "supervised", "unsupervised", "classification", "regression"],
@@ -205,7 +204,6 @@ def suggest_criteria_from_jd(jd_text: str) -> dict:
         "Software Engineering": ["software", "microservice", "api", "rest", "testing", "code review", "agile", "git"],
         "Domain Knowledge": ["fintech", "finance", "healthcare", "e-commerce", "fraud", "recommendation"],
     }
-
     scale_templates = {
         "Python": {"0": "No Python", "1": "Basic syntax", "2": "Scripts with libraries", "3": "Built applications", "4": "Production code", "5": "Expert / OSS contributor"},
         "Machine Learning": {"0": "No ML knowledge", "1": "Theoretical familiarity", "2": "Coursework projects", "3": "Hands-on with real data", "4": "Production models", "5": "Published research"},
@@ -219,39 +217,27 @@ def suggest_criteria_from_jd(jd_text: str) -> dict:
         "Software Engineering": {"0": "None", "1": "Basic coding", "2": "Built features", "3": "Production apps", "4": "Microservices", "5": "Architect"},
         "Domain Knowledge": {"0": "None", "1": "Awareness", "2": "Some exposure", "3": "Working knowledge", "4": "Deep domain expertise", "5": "Industry authority"},
     }
-
     suggested = []
     matched = set()
     for criteria_name, kws in keywords.items():
         for kw in kws:
             if kw in text_lower and criteria_name not in matched:
                 matched.add(criteria_name)
-                scale = scale_templates.get(criteria_name, {
-                    "0": "None", "1": "Basic", "2": "Some", "3": "Good", "4": "Strong", "5": "Expert"
-                })
-                suggested.append({
-                    "name": criteria_name,
-                    "weight": 0.0,
-                    "description": f"Assessed from JD requirements",
-                    "scale": scale,
-                })
+                scale = scale_templates.get(criteria_name, {"0": "None", "1": "Basic", "2": "Some", "3": "Good", "4": "Strong", "5": "Expert"})
+                suggested.append({"name": criteria_name, "weight": 0.0, "description": "Assessed from JD requirements", "scale": scale})
                 break
-
     if not suggested:
         suggested = [
             {"name": "Technical Skills", "weight": 0.0, "description": "Overall technical alignment with JD", "scale": {"0": "None", "1": "Basic", "2": "Some", "3": "Good", "4": "Strong", "5": "Expert"}},
             {"name": "Experience", "weight": 0.0, "description": "Relevant experience level", "scale": {"0": "None", "1": "<1yr", "2": "1-2yr", "3": "2-4yr", "4": "4-6yr", "5": "6+yr"}},
             {"name": "Culture Fit", "weight": 0.0, "description": "Communication and teamwork", "scale": {"0": "None", "1": "Minimal", "2": "Adequate", "3": "Good", "4": "Strong", "5": "Exceptional"}},
         ]
-
     total = len(suggested)
     for c in suggested:
         c["weight"] = round(1.0 / total, 2) if total > 0 else 0.2
-
     remainder = round(1.0 - sum(c["weight"] for c in suggested), 2)
     if suggested and remainder != 0:
         suggested[0]["weight"] = round(suggested[0]["weight"] + remainder, 2)
-
     return {"criteria": suggested, "evidence_rule": "Every score MUST cite a specific line from the candidate's resume.", "scoring_approach": "Weighted average of 0-5 criterion scores."}
 
 
@@ -263,6 +249,11 @@ if "jd" not in st.session_state:
     st.session_state.candidate_names = list(dcand.keys())
     st.session_state.result = None
     st.session_state.ran = False
+    st.session_state.trajectory_step = 0
+    st.session_state.llm_mode = False
+    st.session_state.api_key = os.getenv("OPENAI_API_KEY", "")
+    st.session_state.provider = "openai"
+    st.session_state.bias_audit_result = None
 
 st.markdown(
     '<div class="main-header">'
@@ -274,21 +265,65 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-header_col1, header_col2 = st.columns([4, 1])
-with header_col2:
-    cc1, cc2 = st.columns(2)
-    with cc1:
-        if st.button("Reset", use_container_width=True):
-            djd, drub, dcand = load_defaults()
-            st.session_state.jd = djd
-            st.session_state.rubric = drub
-            st.session_state.candidates = dcand
-            st.session_state.candidate_names = list(dcand.keys())
-            st.session_state.result = None
-            st.session_state.ran = False
-            st.rerun()
-    with cc2:
-        run_btn = st.button("Run Agent", type="primary", use_container_width=True)
+with st.sidebar:
+    st.markdown("### Configuration")
+    st.session_state.llm_mode = st.toggle("LLM Mode (ReAct Agent)", value=st.session_state.llm_mode)
+    if st.session_state.llm_mode:
+        st.session_state.api_key = st.text_input("API Key", type="password", value=st.session_state.api_key, help="OpenAI / OpenRouter / Google API key")
+        st.session_state.provider = st.selectbox("Provider", ["openai", "openrouter", "google"], index=["openai", "openrouter", "google"].index(st.session_state.provider))
+    st.markdown("---")
+    st.markdown("### Actions")
+    djd, drub, dcand = load_defaults()
+    if st.button("Reset to Defaults", use_container_width=True):
+        st.session_state.jd = djd
+        st.session_state.rubric = drub
+        st.session_state.candidates = dcand
+        st.session_state.candidate_names = list(dcand.keys())
+        st.session_state.result = None
+        st.session_state.ran = False
+        st.session_state.trajectory_step = 0
+        st.session_state.bias_audit_result = None
+        st.rerun()
+    run_btn = st.button("Run Agent", type="primary", use_container_width=True)
+
+    if st.session_state.get("ran") and st.session_state.result:
+        st.markdown("---")
+        st.markdown("### Trajectory Stepper")
+        trajectory = st.session_state.result.get("trajectory", [])
+        if trajectory:
+            max_step = len(trajectory)
+            current = st.session_state.trajectory_step
+            col_p, col_n = st.columns(2)
+            with col_p:
+                if st.button("◀ Prev", use_container_width=True) and current > 0:
+                    st.session_state.trajectory_step = current - 1
+                    st.rerun()
+            with col_n:
+                if st.button("Next ▶", use_container_width=True) and current < max_step - 1:
+                    st.session_state.trajectory_step = current + 1
+                    st.rerun()
+            if max_step > 0:
+                idx = min(current, max_step - 1)
+                step = trajectory[idx]
+                st.markdown(f"**Step {step.step_number}/{max_step}**: {step.action}")
+                st.code(step.observation[:300], language="text")
+
+        st.markdown("---")
+        st.markdown("### Bias Audit")
+        if st.button("Run Name-Swap Bias Audit", use_container_width=True):
+            profiles = st.session_state.result.get("parsed_profiles", {})
+            scorecards = st.session_state.result.get("scorecards", {})
+            names = list(profiles.keys())
+            if len(names) >= 2:
+                swapped = []
+                for i in range(len(names)):
+                    for j in range(i + 1, len(names)):
+                        na, nb = names[i], names[j]
+                        if na in scorecards and nb in scorecards:
+                            fcheck = fairness_check(profiles[na], profiles[nb], scorecards[na], scorecards[nb])
+                            swapped.append(fcheck)
+                st.session_state.bias_audit_result = swapped
+                st.rerun()
 
 pills_html = '<div class="pill-container">'
 guardrail_pills = [
@@ -296,6 +331,7 @@ guardrail_pills = [
     ("Human-in-the-Loop", "Active", True),
     ("Injection Defence", "Active", True),
     ("Fairness Check", "Active", True),
+    ("Mode", "LLM" if st.session_state.llm_mode else "Deterministic", True),
 ]
 for label, desc, active in guardrail_pills:
     cls = "pill active" if active else "pill"
@@ -314,13 +350,12 @@ with config_tab1:
             st.rerun()
     with jd_col2:
         st.metric("Characters", f"{len(st.session_state.jd):,}")
-    jd_text = st.text_area("", st.session_state.jd, height=260, label_visibility="collapsed")
+    jd_text = st.text_area("Job description", st.session_state.jd, height=260, label_visibility="collapsed")
     if jd_text != st.session_state.jd:
         st.session_state.jd = jd_text
 
 with config_tab2:
     rubric = st.session_state.rubric
-
     col_suggest, col_info = st.columns([1, 2])
     with col_suggest:
         if st.button("Suggest criteria from JD", use_container_width=True):
@@ -332,7 +367,6 @@ with config_tab2:
         st.markdown(f"**{len(rubric['criteria'])} criteria** | Total weight: **{total_weight:.2f}**")
         if abs(total_weight - 1.0) > 0.01:
             st.warning(f"Weights sum to {total_weight:.2f}. Adjust sliders to reach 1.0.")
-
     new_criteria = []
     for i, c in enumerate(rubric["criteria"]):
         with st.expander(f"{c['name']}  (weight: {c['weight']})", expanded=False):
@@ -344,7 +378,7 @@ with config_tab2:
                 desc = st.text_input("Short description", c["description"], key=f"c_desc_{i}")
             st.markdown("**Scale (0–5)** — one line per level as `level: description`")
             scale_str = st.text_area(
-                "", "\n".join(f"{k}: {v}" for k, v in c["scale"].items()),
+                "Scale levels", "\n".join(f"{k}: {v}" for k, v in c["scale"].items()),
                 height=130, key=f"c_scale_{i}", label_visibility="collapsed"
             )
             new_scale = {}
@@ -359,7 +393,6 @@ with config_tab2:
 with config_tab3:
     names = list(st.session_state.candidates.keys())
     cand_tabs = st.tabs([n.split()[0] for n in names] + ["+ Add"])
-
     for idx, name in enumerate(names):
         with cand_tabs[idx]:
             c1, c2 = st.columns([1, 5])
@@ -373,10 +406,9 @@ with config_tab3:
                     st.session_state.candidate_names = list(st.session_state.candidates.keys())
                     st.rerun()
             with c2:
-                resume_text = st.text_area("", st.session_state.candidates[name], height=260, key=f"resume_{name}", label_visibility="collapsed")
+                resume_text = st.text_area("Resume text", st.session_state.candidates[name], height=260, key=f"resume_{name}", label_visibility="collapsed")
                 if resume_text != st.session_state.candidates[name]:
                     st.session_state.candidates[name] = resume_text
-
     with cand_tabs[-1]:
         nc1, nc2 = st.columns(2)
         with nc1:
@@ -402,34 +434,43 @@ if run_btn:
     if not candidates:
         st.error("Add at least one candidate before running.")
     else:
-        with st.spinner("Running recruitment agent..."):
-            try:
-                app = build_graph()
-                initial_state = {
-                    "job_description": st.session_state.jd,
-                    "rubric": st.session_state.rubric,
-                    "candidates": candidates,
-                    "parsed_profiles": {},
-                    "scorecards": {},
-                    "shortlist": [],
-                    "trajectory": [],
-                    "current_candidate": None,
-                    "candidates_remaining": list(candidates.keys()),
-                    "phase": "planning",
-                    "step_count": 0,
-                    "human_approval_pending": None,
-                    "injection_attempt_detected": False,
-                    "fairness_checked": False,
-                    "error": None,
-                }
-                config = {"recursion_limit": MAX_STEPS, "configurable": {"thread_id": "recruitment-1"}}
-                result = app.invoke(initial_state, config=config)
-                st.session_state.result = result
-                st.session_state.ran = True
-                st.rerun()
-            except Exception as e:
-                st.error(f"Agent run failed: {e}")
-                st.session_state.ran = False
+        if st.session_state.llm_mode and not st.session_state.api_key:
+            st.error("API key required for LLM mode. Enter it in the sidebar or switch to deterministic mode.")
+        else:
+            with st.spinner("Running recruitment agent..."):
+                try:
+                    app = build_graph()
+                    initial_state = {
+                        "job_description": st.session_state.jd,
+                        "rubric": st.session_state.rubric,
+                        "candidates": candidates,
+                        "parsed_profiles": {},
+                        "scorecards": {},
+                        "shortlist": [],
+                        "trajectory": [],
+                        "current_candidate": None,
+                        "candidates_remaining": list(candidates.keys()),
+                        "phase": "planning",
+                        "step_count": 0,
+                        "human_approval_pending": None,
+                        "injection_attempt_detected": False,
+                        "fairness_checked": False,
+                        "error": None,
+                        "messages": [],
+                        "llm_mode": st.session_state.llm_mode,
+                        "api_key": st.session_state.api_key if st.session_state.llm_mode else "",
+                        "provider": st.session_state.provider if st.session_state.llm_mode else "",
+                    }
+                    config = {"recursion_limit": MAX_STEPS, "configurable": {"thread_id": "recruitment-1"}}
+                    result = app.invoke(initial_state, config=config)
+                    st.session_state.result = result
+                    st.session_state.ran = True
+                    st.session_state.trajectory_step = 0
+                    st.session_state.bias_audit_result = None
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Agent run failed: {e}")
+                    st.session_state.ran = False
 
 if st.session_state.get("ran") and st.session_state.result:
     result = st.session_state.result
@@ -445,8 +486,6 @@ if st.session_state.get("ran") and st.session_state.result:
                 score = entry.scorecard.weighted_total
                 score_class = "high" if score >= 3.5 else ("mid" if score >= 2.0 else "low")
                 badge_class = entry.recommendation
-                color_map = {"interview": "#2e7d32", "hold": "#e65100", "reject": "#c62828"}
-
                 st.markdown(
                     f'<div class="candidate-card">'
                     f'<div style="display:flex;justify-content:space-between;align-items:center">'
@@ -461,7 +500,6 @@ if st.session_state.get("ran") and st.session_state.result:
                     f'</div></div>',
                     unsafe_allow_html=True
                 )
-
                 if entry.proposed_action:
                     slot = entry.proposed_action.slot
                     status = entry.proposed_action.status
@@ -475,7 +513,6 @@ if st.session_state.get("ran") and st.session_state.result:
                                 st.success("Interview approved!")
                         else:
                             st.markdown(f"Status: `{status}`")
-
                 with st.expander("Scorecard & Evidence"):
                     for cs in entry.scorecard.criterion_scores:
                         st.markdown(
@@ -485,7 +522,6 @@ if st.session_state.get("ran") and st.session_state.result:
                             f'</div>',
                             unsafe_allow_html=True
                         )
-                st.markdown("</div>", unsafe_allow_html=True)
 
     with res_tab2:
         st.markdown("### Reasoning Trace")
@@ -510,7 +546,6 @@ if st.session_state.get("ran") and st.session_state.result:
         step_count = result.get("step_count", 0)
         shortlist = result.get("shortlist", [])
         pending = [e for e in shortlist if e.proposed_action and e.proposed_action.status == "pending_approval"]
-
         gcols = st.columns(4)
         with gcols[0]:
             st.markdown(
@@ -532,11 +567,10 @@ if st.session_state.get("ran") and st.session_state.result:
             )
         with gcols[3]:
             st.markdown(
-                f'<div class="metric-card"><div class="label">Fairness</div>'
-                f'<div class="value">Checked</div></div>',
+                f'<div class="metric-card"><div class="label">Mode</div>'
+                f'<div class="value">{"LLM" if st.session_state.llm_mode else "Deterministic"}</div></div>',
                 unsafe_allow_html=True
             )
-
         if inj:
             st.warning("Prompt injection attempt was detected in a resume and blocked.")
         if pending:
@@ -566,8 +600,19 @@ if st.session_state.get("ran") and st.session_state.result:
                             cc[2].success("Consistent")
                         else:
                             cc[2].error("Bias detected")
-                        st.markdown("</div>", unsafe_allow_html=True)
-        else:
-            st.info("Need at least 2 candidates for a fairness comparison.")
+
+        if st.session_state.bias_audit_result:
+            st.markdown("### Bias Audit Report")
+            st.markdown("Name-swap test: candidate names were swapped to check for inconsistent scoring.")
+            for check in st.session_state.bias_audit_result:
+                st.markdown(
+                    f'<div style="background:{"#e8f5e9" if check["passed"] else "#fbe9e7"};border-radius:10px;padding:12px;margin-bottom:8px">'
+                    f'<strong>{check["candidate_a"]} vs {check["candidate_b"]}</strong> — '
+                    f'{"Consistent" if check["passed"] else "Inconsistent scores detected"} '
+                    f'({check["relevant_score_a"]:.2f} vs {check["relevant_score_b"]:.2f})'
+                    f'<br><small>{check["note"]}</small>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
 else:
     st.info("Configure the inputs above, then click **Run Agent**.")

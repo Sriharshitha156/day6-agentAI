@@ -249,3 +249,17 @@ Tests cover:
 - Fairness check (identical candidates = same score)
 - Open-source keyword detection
 - False positive avoidance (`oss` not matching `across`)
+
+
+
+
+
+No .env needed — the agent uses a deterministic scoring engine, not an LLM. No API keys required.
+How to run (all in README):
+- python main.py — CLI shortlist
+- streamlit run src/app.py — browser UI
+- python tests/test_tools.py — run tests
+## What to add if you want more:
+- .env file — only if you swap in an LLM (e.g., langchain-openai + OPENAI_API_KEY=sk-...) by replacing _score_criterion with an LLM call
+- langchain-google-genai or langchain-openai to requirements.txt if you want LLM-based scoring
+- Stretch goals from the lab: multi-agent crew, real MCP calendar, bias audit report

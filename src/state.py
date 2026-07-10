@@ -1,17 +1,15 @@
-from typing import TypedDict, Optional, Annotated
+from typing import TypedDict, Optional, Annotated, Any
+from langgraph.graph.message import add_messages
 from src.schemas import CandidateProfile, ScoreCard, ShortlistEntry, TrajectoryStep
-import json
 
 
 def reduce_shortlist(existing: list[ShortlistEntry], update: list[ShortlistEntry]) -> list[ShortlistEntry]:
-    if update:
-        return update
-    return existing or []
+    return update if update else (existing or [])
 
 
 def reduce_trajectory(existing: list[TrajectoryStep], update: list[TrajectoryStep]) -> list[TrajectoryStep]:
     if update:
-        return existing + update if existing else update
+        return (existing or []) + update
     return existing or []
 
 
@@ -45,3 +43,7 @@ class AgentState(TypedDict):
     injection_attempt_detected: bool
     fairness_checked: bool
     error: Optional[str]
+    messages: Annotated[list, add_messages]
+    llm_mode: bool
+    api_key: str
+    provider: str

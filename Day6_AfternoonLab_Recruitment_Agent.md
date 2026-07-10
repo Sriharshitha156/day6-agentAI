@@ -154,3 +154,42 @@ Five non-negotiable guardrails:
 | Human-in-the-loop | `interrupt`/checkpointer (LangGraph) or `human_input` on task (CrewAI) |
 | Observability | LangSmith / Arize Phoenix / structured print logs |
 | UI | Streamlit — shortlist view + trajectory + approval button |
+
+---
+
+## Built & Committed — Project Files
+
+| File | Purpose |
+|---|---|
+| `data/job_description.md` | Junior AI Engineer JD — TechVest |
+| `data/candidates/priya.md` | **Strong fit** — ML intern, PyTorch, fraud detection, open-source, published paper |
+| `data/candidates/rahul.md` | **Borderline** — SWE with some ML exposure, less depth |
+| `data/candidates/meera.md` | **Weak fit** — UI/UX designer + planted `<!-- SYSTEM OVERRIDE -->` injection |
+| `data/rubric.json` | 6 weighted criteria (0–5), evidence rule |
+| `src/schemas.py` | Pydantic models: `CandidateProfile`, `ScoreCard`, `ShortlistEntry`, etc. |
+| `src/state.py` | LangGraph `TypedDict` with custom reducers |
+| `src/tools.py` | 4 tools: `parse_resume`, `score_candidate`, `check_availability`, `propose_interview` |
+| `src/graph.py` | 6-node LangGraph with conditional edges + MemorySaver checkpointer |
+| `src/guardrails.py` | Injection defence + fairness check |
+| `src/app.py` | Streamlit UI (shortlist, trajectory, guardrails, fairness tabs) |
+| `main.py` | CLI entry point |
+| `tests/test_tools.py` | 10 unit tests, all passing |
+
+
+
+
+
+
+
+
+
+[•] Install LLM dependencies (langchain-google-genai)
+[ ] Add API key input in UI + LLM provider selection
+[ ] LLM-based resume parsing (replace deterministic parser)
+[ ] LLM-based scoring with evidence (replace _score_criterion)
+[ ] ReAct agent loop: LLM decides which tool to call next
+[ ] Checkpointer interrupt before propose_interview
+[ ] Trajectory stepper in Streamlit UI
+[ ] Bias audit report: auto name-swap + re-run
+[ ] Update tests for new LLM-based tools
+[ ] Commit everything  implment all this steps , and prviode me a test guide md , where i can see how to check each step using giving what as input and what muts be output . give a nice ui with good frameworks . i will check step by step and ask you for changes. you do all the steps and provide detailed guide .
