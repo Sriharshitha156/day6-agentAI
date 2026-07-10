@@ -19,6 +19,8 @@ Built for **Day 6 Afternoon Lab** of the GenAI & Agentic AI Engineering programm
 - [Candidates](#candidates)
 - [5 Guardrails](#5-guardrails)
 - [Streamlit UI](#streamlit-ui)
+  - [Design System](#design-system)
+  - [Accessibility Features](#accessibility-features)
 - [CLI Reference](#cli-reference)
 - [Tests](#tests)
 - [Configuration](#configuration)
@@ -269,24 +271,39 @@ The three candidates are designed to span the full decision space:
 
 ## Streamlit UI
 
-Run `streamlit run src/app.py` to open the dashboard with 4 tabs:
+Run `streamlit run src/app.py` to open the dashboard with 4 tabs.
 
-### 1. Shortlist Tab
+### Design System
+
+The UI uses a **CSS custom property (design token)** system for all colors, shadows, and radii. All text meets **WCAG AA** minimum contrast ratios (4.5:1 for body text, 3:1 for large text). Key tokens:
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `--color-text-primary` | `#111827` | Headings, labels, scores |
+| `--color-text-secondary` | `#475569` | Body text, justifications |
+| `--color-text-muted` | `#64748b` | Step numbers, secondary labels |
+| `--color-bg-card` | `#ffffff` | All card surfaces |
+| `--color-border` | `#e2e8f0` | Card borders, dividers |
+| `--color-accent` | `#6366f1` | Active tabs, focus rings |
+
+### Tabs
+
+#### 1. Shortlist Tab
 - Ranked candidates with verdict badges (INTERVIEW / HOLD / REJECT)
-- Weighted score ring (colour-coded: green ≥ 3.5, orange ≥ 2.0, red < 2.0)
+- Weighted score ring (colour-coded: green >= 3.5, orange >= 2.0, red < 2.0)
 - Evidence-cited justifications per criterion
 - **Approve Interview** button for pending proposals
 
-### 2. Trajectory Tab
-- Step-by-step reasoning trace (thought → action → observation)
+#### 2. Trajectory Tab
+- Step-by-step reasoning trace (thought -> action -> observation)
 - Expandable per-step details
 - Full JSON audit log download
 
-### 3. Guardrails Tab
+#### 3. Guardrails Tab
 - Live status panel: steps used, injection status, HITL pending count, mode
 - Warnings for blocked injections and pending approvals
 
-### 4. Fairness Check Tab
+#### 4. Fairness Check Tab
 - Pairwise name-blind comparison of relevant scores
 - **Bias Audit** button: runs name-swap test and reports consistency
 
@@ -295,6 +312,16 @@ Run `streamlit run src/app.py` to open the dashboard with 4 tabs:
 - **API Key / Provider** — configure OpenAI, OpenRouter, Google, or GitHub models
 - **Reset to Defaults** — reload original JD, rubric, and candidates
 - **Trajectory Stepper** — replay the agent's reasoning one step at a time
+
+### Accessibility Features
+
+- All text uses CSS custom properties for consistent contrast
+- Disabled buttons at 55% opacity with `cursor: not-allowed`
+- Solid backgrounds replace translucent glass/blur effects on cards, pills, and tabs
+- Verdict badges use solid fills with dark text on light backgrounds
+- No content hidden by `overflow: hidden` on expanders
+- Tooltip z-index (1100) ensures visibility above all overlays
+- Animations use `fill-mode: both` so elements remain visible if CSS animation fails
 
 ---
 
